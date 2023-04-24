@@ -118,7 +118,6 @@ int main(int argc, char **argv) {
         printf("Общая память создана.\n");
     }
 
-    int sem_id = getSemaphoreSet(1, rand() % 10000);
     int fans_id = getSemaphoreSet(fans_count, rand() % 10000);
 
     for (int i = 0; i < fans_count; ++i) {
@@ -135,7 +134,6 @@ int main(int argc, char **argv) {
     studentess_process(fans_id, fans_count, count_array);
 
     eraseSemaphore(fans_id);
-    eraseSemaphore(sem_id);
 
     shmdt(count_array);
     shmctl(shmid, IPC_RMID, NULL);
