@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
+int fans_id;
+int shmid;
+int *count_array;
 
 int getSemaphoreSet(int cnt_sems, int sem_key) {
     int sem_id = semget(sem_key, cnt_sems, IPC_CREAT | 0666);
@@ -86,21 +91,41 @@ void fan_process(int sem_id, int num, int *count_array) {
     runOp(sem_id, num, 1, 0);
 }
 
+// функция для обработки прерывания
+void sigintHandler(int signum) {
+    int status;
+    pid_t pid;
+
+    if ((pid = waitpid(-1, &status, 0)) < 0) {
+        // Error: this process is a child process
+    } else {
+        printf("Получени сигнал ПРЕРЫВАНИЯ.\n");
+
+        eraseSemaphore(fans_id);
+
+        shmdt(count_array);
+        shmctl(shmid, IPC_RMID, NULL);
+
+        printf("Свидание отменено пользователем.\n");
+    }
+
+    exit(signum);
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         printf("Использование: ./main <fan count>\n");
         return -1;
     }
+    (void) signal(SIGINT, sigintHandler);
 
     int fans_count = atoi(argv[1]);
 
-    if (fans_count < 1 || fans_count > 1000) {
-        printf("Ошибка: количество фанатов должно быть от 1 до 1000 включительно\n");
+    if (fans_count < 1 || fans_count > 10000) {
+        printf("Ошибка: количество фанатов должно быть от 1 до 10000 включительно\n");
         exit(EXIT_FAILURE);
     }
 
-    int shmid;
-    int *count_array;
     key_t shm_key = ftok(argv[0], 0);
 
     if ((shmid = shmget(shm_key, sizeof(int) * fans_count, 0666 | IPC_CREAT | IPC_EXCL)) < 0) {
@@ -118,7 +143,7 @@ int main(int argc, char **argv) {
         printf("Общая память создана.\n");
     }
 
-    int fans_id = getSemaphoreSet(fans_count, rand() % 10000);
+    fans_id = getSemaphoreSet(fans_count, rand() % 10000);
 
     for (int i = 0; i < fans_count; ++i) {
         pid_t pid;
