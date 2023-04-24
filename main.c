@@ -97,9 +97,11 @@ void sigintHandler(int signum) {
     pid_t pid;
 
     if ((pid = waitpid(-1, &status, 0)) < 0) {
-        // Error: this process is a child process
+        // Ошибка: это дочерний процесс
     } else {
         printf("Получени сигнал ПРЕРЫВАНИЯ.\n");
+
+        // Зачистка памяти:
 
         eraseSemaphore(fans_id);
 
@@ -113,21 +115,22 @@ void sigintHandler(int signum) {
 }
 
 int main(int argc, char **argv) {
+    // Обработка входных данных:
     if (argc != 2) {
         printf("Использование: ./main <fan count>\n");
         return -1;
     }
-    (void) signal(SIGINT, sigintHandler);
-
     int fans_count = atoi(argv[1]);
-
     if (fans_count < 1 || fans_count > 10000) {
         printf("Ошибка: количество фанатов должно быть от 1 до 10000 включительно\n");
         exit(EXIT_FAILURE);
     }
 
-    key_t shm_key = ftok(argv[0], 0);
+    // Подготовка к получению сигнала ПРЕРЫВАНИЯ:
+    (void) signal(SIGINT, sigintHandler);
 
+    // Подготовка общей памяти:
+    key_t shm_key = ftok(argv[0], 0);
     if ((shmid = shmget(shm_key, sizeof(int) * fans_count, 0666 | IPC_CREAT | IPC_EXCL)) < 0) {
         if ((shmid = shmget(shm_key, sizeof(int) * fans_count, 0)) < 0) {
             printf("Не удаётся создать общую память:\n");
@@ -143,8 +146,10 @@ int main(int argc, char **argv) {
         printf("Общая память создана.\n");
     }
 
+    // Подготовка семафоров:
     fans_id = getSemaphoreSet(fans_count, rand() % 10000);
 
+    // Запуск процессов-поклонников:
     for (int i = 0; i < fans_count; ++i) {
         pid_t pid;
         if ((pid = fork()) < 0) {
@@ -156,13 +161,15 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Запуск процесса-студентки:
     studentess_process(fans_id, fans_count, count_array);
 
+    // Зачистка памяти:
     eraseSemaphore(fans_id);
-
     shmdt(count_array);
     shmctl(shmid, IPC_RMID, NULL);
 
+    // Завершение программы:
     printf("День завершён.\n");
     return 0;
 }
