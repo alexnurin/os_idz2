@@ -17,6 +17,7 @@ void studentess_process(sem_t *semaphore, int fans_count, int *shared_array) {
     for (int i = 0; i < fans_count; ++i) {
         sem_wait(semaphore);
     }
+    sem_wait(semaphore);
     printf("Просмотр открыток начат ...\n");
     for (int i = 0; i < fans_count; ++i) {
         if (shared_array[i] > mx) {
